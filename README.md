@@ -8,8 +8,8 @@
 
 > ### En construction
 > Projet en cours de developpement sur 4 semaines, du 28 aout au 24 septembre 2026.
-> Le plan de travail detaille est dans [GUIDE.md](GUIDE.md), les mesures sont journalisees
-> dans [RESULTS.md](RESULTS.md) au fur et a mesure.
+> Avancement : [TASKS.md](TASKS.md) — la liste des taches.
+> Explications detaillees : [GUIDE.md](GUIDE.md). Mesures : [RESULTS.md](RESULTS.md).
 >
 > Les fonctions du coeur algorithmique (similarite cosinus, BM25, fusion de rangs,
 > recall@k / MRR / NDCG) sont implementees a la main, sans librairie de haut niveau :
