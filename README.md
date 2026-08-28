@@ -5,6 +5,16 @@
 > metriques de retrieval — est ecrit a la main et **mesure**.
 
 **Corpus :** Code du travail marocain + CGNC + circulaires DGI (sources publiques)
+
+> ### En construction
+> Projet en cours de developpement sur 4 semaines, du 28 aout au 24 septembre 2026.
+> Le plan de travail detaille est dans [GUIDE.md](GUIDE.md), les mesures sont journalisees
+> dans [RESULTS.md](RESULTS.md) au fur et a mesure.
+>
+> Les fonctions du coeur algorithmique (similarite cosinus, BM25, fusion de rangs,
+> recall@k / MRR / NDCG) sont implementees a la main, sans librairie de haut niveau :
+> c'est l'objet meme du projet.
+
 **Statut :** en cours — voir [GUIDE.md](GUIDE.md) pour le plan de travail.
 
 ## Le probleme traite
