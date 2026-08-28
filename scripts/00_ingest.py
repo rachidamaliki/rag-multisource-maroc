@@ -32,7 +32,7 @@ import json
 import re
 from pathlib import Path
 
-import fitz  # pymupdf
+import pymupdf
 
 from src.config import CORPUS_DIR, DATA, SOURCES
 
@@ -45,7 +45,7 @@ RAW_DIR.mkdir(exist_ok=True)
 # ---------------------------------------------------------------
 
 def pdf_to_pages(path: Path) -> list[dict]:
-    doc = fitz.open(path)
+    doc = pymupdf.open(path)
     return [{"page": i + 1, "text": p.get_text("text")} for i, p in enumerate(doc)]
 
 
