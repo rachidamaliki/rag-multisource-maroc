@@ -1,0 +1,34 @@
+# Environnements
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Secrets — NE JAMAIS COMMITER
+.env
+*.key
+
+# Donnees lourdes / generees
+data/cache/*
+!data/cache/.gitkeep
+data/corpus/*
+!data/corpus/.gitkeep
+data/index/
+*.faiss
+*.npy
+*.pkl
+
+# Garder le golden dataset : c'est le coeur du projet
+!data/golden/*.jsonl
+
+# Sorties
+reports/figures/*.png
+!reports/figures/.gitkeep
+.DS_Store
+
+# Documents personnels et sources — jamais publies
+*.pdf
+data/raw/**/*.pdf
+data/raw/**/*.html
