@@ -36,6 +36,12 @@ class LLMClient:
 
     @retry(stop=stop_after_attempt(4), wait=wait_exponential(multiplier=1, min=2, max=30))
     def complete(self, prompt: str, temperature: float = 0.0, max_tokens: int = 1024) -> str:
+        """ATTENTION — piege verifie le 2026-08-29 :
+        `openai/gpt-oss-120b` est un modele A RAISONNEMENT. Il consomme des
+        tokens de reflexion AVANT d'ecrire sa reponse. Avec max_tokens trop bas
+        (teste : 10), il renvoie une chaine VIDE sans lever d'erreur.
+        Ne jamais descendre sous ~256, meme pour une reponse d'un seul mot.
+        Alternative sans raisonnement, 3x plus rapide : qwen/qwen3.8-27b."""
         c = self._get()
         if self.provider == "groq":
             r = c.chat.completions.create(

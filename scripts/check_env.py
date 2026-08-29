@@ -24,6 +24,14 @@ def check(label, fn):
         problems.append(label)
 
 
+if "--models" in sys.argv:
+    from src.config import settings
+    from groq import Groq
+    print("Modeles Groq disponibles :")
+    for m in sorted(x.id for x in Groq(api_key=settings.groq_api_key).models.list().data):
+        print("  ", m)
+    sys.exit(0)
+
 print("=== Environnement ===")
 check("python 3.12", lambda: sys.version.split()[0])
 check("numpy", lambda: __import__("numpy").__version__)
@@ -49,6 +57,20 @@ def check_env_file():
 
 
 check(".env + cle LLM", check_env_file)
+
+
+def check_llm_call():
+    """Appel reel au LLM : verifie la cle ET la validite du nom de modele."""
+    from src.llm import LLMClient
+    # max_tokens genereux : gpt-oss est un modele a raisonnement, il consomme
+    # des tokens de reflexion AVANT d'ecrire sa reponse. Trop bas => reponse vide.
+    out = LLMClient().complete("Reponds par un seul mot : bonjour", max_tokens=256)
+    if not out or not out.strip():
+        raise ValueError("reponse vide — augmenter max_tokens (modele a raisonnement)")
+    return f'reponse : "{out.strip()[:30]}"' 
+
+
+check("appel LLM reel", check_llm_call)
 
 
 def check_dirs():

@@ -28,7 +28,8 @@ class Settings(BaseSettings):
 
     # --- Generation ---
     llm_provider: str = "groq"           # groq | gemini | ollama
-    llm_model: str = "llama-3.3-70b-versatile"
+    llm_model: str = "openai/gpt-oss-120b"      # verifie le 2026-08-29 sur Groq
+    llm_model_fast: str = "qwen/qwen3.8-27b"    # 3x plus rapide, pour les boucles d'eval
     groq_api_key: str = ""
     google_api_key: str = ""
 
