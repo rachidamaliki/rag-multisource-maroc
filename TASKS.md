@@ -12,8 +12,9 @@ Légende : 🔴 = bloquant · ⏱️ = durée estimée · 📁 = fichier à modi
 
 - [x] Dépôt GitHub créé et public
 - [x] Python 3.12 + librairies installées
-- [ ] 🔴 **Clé Groq** — https://console.groq.com → Sign up → API Keys → coller dans `.env` ⏱️ 2 min
-- [ ] 🔴 **Corpus** — PDF du Code du travail marocain dans `data/raw/code_travail/` ⏱️ 10 min
+- [x] **Clé Groq** — configurée, appel LLM testé (modèle `openai/gpt-oss-120b`)
+- [x] **Corpus** — 4 PDF du Code du travail (2 FR, 2 AR) dans `data/raw/code_travail/`
+      → provenance et diagnostic d'extraction : [data/raw/README.md](data/raw/README.md)
 
 Vérifier que tout est prêt : `venv\Scripts\python scripts\check_env.py`
 
@@ -37,7 +38,9 @@ Vérifier que tout est prêt : `venv\Scripts\python scripts\check_env.py`
 
 ### J3 · Nettoyer le corpus 📁 `scripts/00_ingest.py` ⏱️ 3 h
 - [ ] `clean()` — enlever en-têtes, pieds de page, recoller les mots coupés
-- [ ] `clean()` — normaliser l'arabe (alef, ya, diacritiques)
+- [ ] `clean()` — normaliser l'arabe : **ligature lam-alef** (`المقاوالت` → `المقاولات`),
+      alef (ا/أ/إ), ya (ي/ى), diacritiques — voir le diagnostic dans `data/raw/README.md`
+- [ ] `clean()` — supprimer les espaces parasites à l'intérieur des mots arabes (20,8 % de fragmentation mesurée)
 - [ ] `detect_lang()` — fr ou ar selon les caractères Unicode
 - [ ] `detect_source()` — déduire la source du nom de dossier
 - [ ] ✅ Validation : `python scripts/00_ingest.py --priority 1` produit du JSON propre
