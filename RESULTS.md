@@ -37,6 +37,37 @@
 **Coude de la courbe :** ef_search = ___
 **Surcout du filtrage par metadonnees :** ___ ms
 
+## Index construit  [structural_bge-m3]
+- corpus : 4 documents, 586 pages, 2 langues
+- decoupage structurel : 2 968 chunks, 185 tokens moy., 2 404 avec reference d'article
+- embeddings bge-m3 : 2 968 x 1 024, 2 534 s sur CPU (~42 min, une seule fois grace au cache)
+- BM25 : 15 278 termes distincts, 45 tokens/chunk apres retrait des mots vides
+
+## PREMIERE MESURE — vectoriel vs BM25 sur des identifiants exacts
+Protocole : 20 numeros d'articles reellement presents dans le corpus, requete
+« article N », verite terrain gratuite via le champ `unit_ref` des chunks.
+
+| Methode | top-1 | top-5 |
+|---|---|---|
+| Vectoriel (bge-m3) | **10 %** | **10 %** |
+| BM25 | **95 %** | **95 %** |
+
+Exemples d'echec du vectoriel :
+  « article 231 » -> renvoie l'article 219
+  « article 396 » -> renvoie l'article 376
+  « dahir 1.03.194 » -> aucun resultat pertinent
+
+Interpretation : pour le modele d'embedding, « article 231 » et « article 219 »
+occupent presque le meme point de l'espace — ce sont tous deux « un article de
+loi avec un numero ». Le numero lui-meme ne porte quasiment aucun signal.
+BM25, lui, cherche le token `231` et le trouve.
+
+Le fait que top-1 = top-5 pour les deux methodes est revelateur : elargir la
+recherche n'aide pas le vectoriel. Ce n'est pas un probleme de classement,
+c'est un probleme de representation.
+
+>>> C'est la justification chiffree de la recherche HYBRIDE. <<<
+
 ## Arc 4 — Hybride
 | Methode | semantic | exact_match | cross_source | Global |
 |---|---|---|---|---|
