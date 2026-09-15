@@ -141,6 +141,59 @@ l'arabe VOLONTAIREMENT non standard (conflation lam-alef). BM25 s'en moque — i
 compare des chaines — mais le modele d'embedding n'a jamais vu cette orthographe
 a l'entrainement. La normalisation qui AIDE BM25 pourrait NUIRE au vectoriel.
 
+## DIAGNOSTIC DU CROSS-LINGUE — la metrique etait cassee, pas le modele
+
+Le 15 % initial en FR->AR etait un ARTEFACT DE MESURE. Re-mesure proprement
+sur 40 requetes en recherche exacte : 45 %.
+
+### Ce qui occupe reellement le top-5 (index mixte, requete francaise, 40 requetes)
+| Contenu du top-5 | Part |
+|---|---|
+| chunks FR d'AUTRES articles | **73 %** |
+| chunks FR du bon article | 19 % |
+| chunks AR du bon article (la cible comptee) | **7 %** |
+| chunks AR d'autres articles | 1 % |
+
+La requete etant en francais, les chunks francais gagnent par proximite de
+LANGUE et non par pertinence. La version arabe du bon article n'est pas
+introuvable : elle est EVINCEE. On comptait donc un echec alors que le systeme
+retrouvait le bon article dans 92 % des cas, simplement dans l'autre langue.
+
+### HNSW est innocente
+| Recherche | recall@5 FR->AR |
+|---|---|
+| exacte (brute force) | 45 % |
+| HNSW ef_search=64 | 45 % |
+| HNSW ef_search=128 | 45 % |
+| HNSW ef_search=512 | 45 % |
+
+Aucune difference : l'approximation n'y est pour rien. Utile a savoir avant de
+passer des heures a regler l'index.
+
+### Le correctif : quota par langue
+| Politique de selection du top-5 | cible AR | bon article (toute langue) |
+|---|---|---|
+| aucune (top-5 brut) | 45 % | 92 % |
+| **quota 3 FR + 2 AR** | **90 %** | **100 %** |
+| filtre strict langue = AR | 95 % | 95 % |
+
+Le quota DOUBLE le recall cross-lingue sans rien perdre — le bon article passe
+meme de 92 % a 100 %, parce qu'on cesse de gaspiller cinq places sur une seule
+langue. Le filtre strict fait un point de mieux sur la cible arabe mais exige
+de connaitre la langue voulue a l'avance ; le quota ne suppose rien.
+
+### Le quota ne coute rien sur les requetes par identifiant
+| Configuration | top-1 | top-5 |
+|---|---|---|
+| BM25 seul | 95 % | 95 % |
+| ponderee [0,5 ; 1] sans quota | 95 % | 95 % |
+| ponderee [0,5 ; 1] + quota 2 par langue | 95 % | 95 % |
+
+Conclusion : quota par langue adopte par defaut. Meme mecanisme applicable au
+biais de VOLUME entre sources (une source de 3 000 chunks evince une source de
+200 pour exactement la meme raison). Implemente dans src/sources.py
+(balanced_merge), 9 tests unitaires dans tests/test_sources.py.
+
 ## Arc 4 — Hybride
 | Methode | semantic | exact_match | cross_source | Global |
 |---|---|---|---|---|
