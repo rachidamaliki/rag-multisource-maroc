@@ -194,6 +194,56 @@ biais de VOLUME entre sources (une source de 3 000 chunks evince une source de
 200 pour exactement la meme raison). Implemente dans src/sources.py
 (balanced_merge), 9 tests unitaires dans tests/test_sources.py.
 
+## LES METRIQUES — et un piege decouvert en les validant
+
+Implementees depuis les formules dans src/metrics.py : recall@k, precision@k,
+hit@k, MRR, NDCG@k, plus evaluate_retrieval() et compare_runs().
+24 tests unitaires.
+
+### Le piege : recall@1 est PLAFONNE par le nombre de passages pertinents
+Premiere execution sur les requetes « article N » (4,2 passages pertinents par
+requete, car le meme article existe en 2 editions FR et 2 editions AR) :
+
+| Configuration | recall@1 | recall@10 | MRR | Diagnostic automatique (1re version) |
+|---|---|---|---|---|
+| BM25 | 0,30 | 0,93 | **0,95** | « classement — un reranker devrait aider » |
+
+Diagnostic FAUX. Le MRR de 0,95 dit que le premier resultat etait le bon dans
+95 % des cas : il n'y a aucun probleme de classement. L'ecart venait d'un
+plafond mecanique — avec 4,2 passages pertinents, recall@1 ne peut pas
+depasser 1/4,2 = 0,24, meme avec un systeme parfait.
+
+    >>> recall@k n'est comparable entre requetes que si elles ont un nombre
+    >>> similaire de passages pertinents. hit@k et MRR le sont toujours.
+
+Correctifs apportes :
+  - ajout de hit@k (1 si au moins un bon passage dans le top-k) — souvent la
+    metrique la plus parlante pour du RAG : le LLM n'a besoin que d'UN bon passage
+  - le diagnostic automatique se base desormais sur hit@1 vs hit@kmax
+  - evaluate_retrieval() expose `pertinents_par_requete`, sans quoi le recall
+    n'est pas interpretable
+
+### Apres correction, sur les memes donnees
+| Configuration | hit@1 | hit@5 | MRR | recall@10 | Diagnostic |
+|---|---|---|---|---|---|
+| BM25 | 0,95 | 0,95 | 0,95 | 0,93 | sain |
+| Ponderee [0,5 ; 1] | 0,95 | 0,95 | 0,95 | 0,92 | sain |
+| Vectoriel | 0,10 | 0,10 | 0,11 | 0,08 | representation |
+
+hit@1 = 0,95 retrouve exactement la mesure initiale faite a la main (95 %) :
+le harnais et la mesure manuelle concordent.
+
+### Le diagnostic automatique et ce qu'il prescrit
+| Signature | Cause | Levier |
+|---|---|---|
+| hit@kmax bas, hit@1 ~ hit@kmax | representation | changer de mecanisme (ex. ajouter BM25) |
+| hit@1 bas, hit@kmax haut | classement | un reranker |
+| hit@1 ~ hit@kmax, les deux hauts | sain | rien a faire |
+
+Le vectoriel sur « article N » est le cas « representation » : 10 % en top-1
+comme en top-5. Aucun reglage d'ef_search n'aurait aide — il fallait BM25.
+Savoir lire cet ecart evite des heures de reglage inutile.
+
 ## Arc 4 — Hybride
 | Methode | semantic | exact_match | cross_source | Global |
 |---|---|---|---|---|
