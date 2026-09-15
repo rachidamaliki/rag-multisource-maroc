@@ -68,6 +68,79 @@ c'est un probleme de representation.
 
 >>> C'est la justification chiffree de la recherche HYBRIDE. <<<
 
+## FUSION — l'hybride n'est pas gratuitement meilleur
+
+### RRF verifie a la main
+Exemple de reference (vectoriel : A 0,58 / B 0,54 / C 0,50 ; BM25 : D 15,5 / A 15,3 / B 9,1)
+  RRF -> A, B, D, C  (scores conformes au calcul manuel a 1e-12)
+  somme naive des scores bruts -> D devance B : l'echelle BM25 (0-30) ecrase le cosinus (0-1)
+10 tests unitaires dans tests/test_fusion.py.
+
+### Requetes « article N » (identifiant exact), 20 requetes
+| Methode | top-1 | top-5 |
+|---|---|---|
+| Vectoriel seul | 10 % | 10 % |
+| BM25 seul | **95 %** | **95 %** |
+| Hybride RRF (poids egaux, vivier 10) | 20 % | 95 % |
+| Hybride pondere (poids egaux) | 15 % | 95 % |
+
+>>> L'hybride DEGRADE le top-1 : de 95 % a 20 %. <<<
+
+Cause mesuree : le bon chunk n'est trouve que par BM25, il recoit donc 1/61 = 0,0164.
+Les chunks trouves par les DEUX moteurs cumulent ~0,025 a 0,033 et le devancent.
+Or, sur ce type de requete, le vectoriel ne propose que des articles plausibles mais
+faux (219 pour 231). Le consensus est donc systematiquement TROMPEUR.
+
+### Effet de la taille du vivier de candidats (RRF, poids egaux)
+| Vivier / moteur | top-1 | top-5 | bon chunk present |
+|---|---|---|---|
+| 5 | 10 % | 95 % | 95 % |
+| 10 | 20 % | 95 % | 95 % |
+| 20 | 25 % | 95 % | 95 % |
+| 40 | 40 % | 65 % | 95 % |
+| 60 | 40 % | 50 % | 95 % |
+| 120 | 40 % | 50 % | 100 % |
+
+La colonne « bon chunk present » reste a 95 % : ce n'est PAS un probleme de recall
+mais de CLASSEMENT. Plus le vivier vectoriel s'elargit, plus il injecte de faux
+candidats que BM25 confirme quelque part.
+Consequence pratique : la taille du vivier est un parametre de qualite, pas un
+simple reglage de performance.
+
+### Balayage des poids [vectoriel, BM25]
+| Fusion | Poids | top-1 | top-5 |
+|---|---|---|---|
+| RRF | [1,0 ; 1,0] | 40 % | 50 % |
+| RRF | [0,5 ; 1,0] | 50 % | 55 % |
+| RRF | [0,25 ; 1,0] | 75 % | 95 % |
+| RRF | [0,1 ; 1,0] | 85 % | 95 % |
+| RRF | [0,0 ; 1,0] | 95 % | 95 % |
+| Ponderee | [1,0 ; 1,0] | 45 % | 95 % |
+| **Ponderee** | **[0,5 ; 1,0]** | **95 %** | **95 %** |
+| Ponderee | [0,25 ; 1,0] | 95 % | 95 % |
+
+La fusion PONDEREE resiste bien mieux que RRF : la normalisation min-max donne 1,0
+au premier de BM25, qui reste donc en tete. Sur ce type de requete, ponderee [0,5 ; 1]
+egale BM25 seul en top-1 tout en conservant l'apport du vectoriel.
+
+## RECHERCHE VECTORIELLE PAR DIRECTION LINGUISTIQUE
+Verite terrain gratuite : le numero d'article est partage entre editions et entre langues.
+
+| Direction | recall@1 | recall@5 | Lecture |
+|---|---|---|---|
+| FR -> FR (deux editions francaises) | 96 % | 96 % | **plafond** : methode et index sains |
+| AR -> AR (deux editions arabes) | 56 % | 68 % | nettement degrade |
+| FR -> AR (cross-lingue) | — | 15 % | anormal pour bge-m3 |
+| FR -> AR, BM25 | — | 0 % | attendu : aucun token partage |
+
+FR->FR a 96 % prouve que ni la methode ni l'index ne sont en cause. La degradation
+est cote arabe, et elle s'aggrave en cross-lingue.
+
+Hypothese en cours de test : on embedde le champ `text_norm`, c'est-a-dire de
+l'arabe VOLONTAIREMENT non standard (conflation lam-alef). BM25 s'en moque — il
+compare des chaines — mais le modele d'embedding n'a jamais vu cette orthographe
+a l'entrainement. La normalisation qui AIDE BM25 pourrait NUIRE au vectoriel.
+
 ## Arc 4 — Hybride
 | Methode | semantic | exact_match | cross_source | Global |
 |---|---|---|---|---|
