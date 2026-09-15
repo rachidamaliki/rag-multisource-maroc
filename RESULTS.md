@@ -244,6 +244,43 @@ Le vectoriel sur « article N » est le cas « representation » : 10 % en top-1
 comme en top-5. Aucun reglage d'ef_search n'aurait aide — il fallait BM25.
 Savoir lire cet ecart evite des heures de reglage inutile.
 
+## CONFLATION ARABE : COUT SUR LES EMBEDDINGS — non conclusif
+
+Question : embedder `text_norm` (forme conflatee, necessaire a BM25) degrade-t-il
+la recherche vectorielle par rapport a `text` (arabe d'origine) ?
+
+Protocole : mini-index de 428 chunks arabes, construit deux fois. Requetes =
+texte francais du meme article, numero retire. Cible = version arabe. Compare
+en APPARIE (les deux variantes voient les memes requetes).
+
+| Echantillon | text_norm | text | Ecart |
+|---|---|---|---|
+| 20 requetes (hit@5) | 80 % | 85 % | +5 pts |
+| 100 requetes (hit@5) | 85 % | 88 % | +3 pts |
+
+Direction stable sur les deux echantillons. Mais le test apparie change la lecture :
+
+| | |
+|---|---|
+| requetes au resultat IDENTIQUE | **97 / 100** |
+| `text` reussit seul | 3 |
+| `text_norm` reussit seul | 0 |
+| McNemar (binomial exact) | **p = 0,250** |
+
+Les 3 points d'ecart reposent sur **3 requetes**. Le signe est parfaitement
+coherent (3-0, jamais l'inverse), mais 3 paires ne permettent pas de conclure :
+p = 0,250 est le meilleur resultat atteignable avec 3 paires concordantes.
+
+DECISION : on ne reconstruit PAS l'index complet (42 min de CPU) sur cette base.
+`text_norm` reste le defaut, le drapeau --embed-field rend le choix rejouable,
+et la question sera re-tranchee sur le golden dataset, avec plus de requetes.
+
+Lecon de methode : un ecart de 3 points sur un graphique a l'air reel. La
+comparaison appariee montre que les deux variantes sont quasi equivalentes sur
+cette tache — 97 requetes sur 100 donnent exactement le meme resultat. Sans
+regarder les paires discordantes, on aurait investi 42 minutes de calcul et
+une complexite supplementaire pour du bruit.
+
 ## Arc 4 — Hybride
 | Methode | semantic | exact_match | cross_source | Global |
 |---|---|---|---|---|

@@ -54,7 +54,12 @@ def main():
     #               qui compare des chaines de caracteres.
     #   text      = arabe d'origine. Le modele d'embedding a ete entraine sur
     #               de l'arabe standard, pas sur notre forme conflatee.
-    # Mesure sur 100 requetes FR->AR (hit@5) : text_norm 85 %, text 88 %.
+    # Mesure sur 100 requetes FR->AR appariees (hit@5) : text_norm 85 %, text 88 %.
+    # MAIS : seulement 3 paires discordantes (3-0 en faveur de text),
+    # McNemar p = 0,25 -> ecart NON significatif. Les 97 autres requetes
+    # donnent le meme resultat dans les deux variantes. On garde donc
+    # text_norm par defaut et on ne reconstruit pas l'index sur cette base ;
+    # a re-trancher sur le golden dataset, avec plus de requetes.
     # Les deux moteurs veulent donc des pretraitements DIFFERENTS. BM25 reste
     # toujours construit sur text_norm ; seul le vectoriel est parametrable ici.
     ap.add_argument("--embed-field", default="text_norm", choices=["text", "text_norm"],
