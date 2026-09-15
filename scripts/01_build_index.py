@@ -49,19 +49,22 @@ def main():
     ap.add_argument("--model", default="bge-m3", choices=list(EMBEDDING_MODELS))
     ap.add_argument("--source", action="append", help="limiter a certaines sources")
     ap.add_argument("--lang", help="limiter a une langue (fr / ar)")
-    # Quel champ embedder ? Ce n'est PAS un detail :
-    #   text_norm = forme canonique (conflation lam-alef). Necessaire a BM25,
-    #               qui compare des chaines de caracteres.
-    #   text      = arabe d'origine. Le modele d'embedding a ete entraine sur
-    #               de l'arabe standard, pas sur notre forme conflatee.
-    # Mesure sur 100 requetes FR->AR appariees (hit@5) : text_norm 85 %, text 88 %.
-    # MAIS : seulement 3 paires discordantes (3-0 en faveur de text),
-    # McNemar p = 0,25 -> ecart NON significatif. Les 97 autres requetes
-    # donnent le meme resultat dans les deux variantes. On garde donc
-    # text_norm par defaut et on ne reconstruit pas l'index sur cette base ;
-    # a re-trancher sur le golden dataset, avec plus de requetes.
-    # Les deux moteurs veulent donc des pretraitements DIFFERENTS. BM25 reste
-    # toujours construit sur text_norm ; seul le vectoriel est parametrable ici.
+    # Quel champ embedder ? Les deux moteurs n'ont pas les memes besoins :
+    #   text_norm = forme canonique (conflation lam-alef). INDISPENSABLE a BM25,
+    #               qui compare des chaines : une variante d'ecriture donne 0.
+    #   text      = arabe d'origine. Possiblement meilleur pour le vectoriel,
+    #               bge-m3 ayant ete entraine sur de l'arabe standard et non
+    #               sur notre forme conflatee.
+    #
+    # Mesure, 100 requetes FR->AR appariees (hit@5) : text_norm 85 %, text 88 %.
+    # Mais l'ecart n'est PAS significatif : 97 requetes sur 100 donnent le meme
+    # resultat, les 3 points reposent sur 3 paires discordantes (3-0 en faveur
+    # de text), McNemar p = 0,25.
+    #
+    # D'ou le choix de garder text_norm par defaut sans reconstruire l'index,
+    # tout en rendant l'alternative rejouable. A re-trancher sur le golden
+    # dataset, avec assez de requetes pour conclure.
+    # BM25 est toujours bati sur text_norm ; seul le vectoriel est parametrable.
     ap.add_argument("--embed-field", default="text_norm", choices=["text", "text_norm"],
                     help="champ utilise pour les embeddings (BM25 utilise toujours text_norm)")
     args = ap.parse_args()
@@ -99,8 +102,10 @@ def main():
     store.build(vecs, [c.id for c in chunks])
 
     # --- 4. index lexical ---
-    # BM25 travaille sur text_norm, comme les embeddings : meme normalisation
-    # pour les deux voies, sinon elles ne parlent pas de la meme chose.
+    # BM25 travaille TOUJOURS sur text_norm, independamment de --embed-field :
+    # la normalisation n'est pas une option pour lui mais une condition de
+    # fonctionnement. Les deux voies peuvent donc reposer sur des formes
+    # differentes du meme texte — c'est voulu, chacune selon ses besoins.
     toks = [tokenize(c.text_norm) for c in chunks]
     bm25 = BM25(toks, chunk_ids=[c.id for c in chunks])
     print(f"BM25 : {len(bm25.inverse)} termes distincts, {bm25.avgdl:.0f} tokens/chunk en moyenne")
