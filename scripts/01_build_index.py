@@ -49,6 +49,16 @@ def main():
     ap.add_argument("--model", default="bge-m3", choices=list(EMBEDDING_MODELS))
     ap.add_argument("--source", action="append", help="limiter a certaines sources")
     ap.add_argument("--lang", help="limiter a une langue (fr / ar)")
+    # Quel champ embedder ? Ce n'est PAS un detail :
+    #   text_norm = forme canonique (conflation lam-alef). Necessaire a BM25,
+    #               qui compare des chaines de caracteres.
+    #   text      = arabe d'origine. Le modele d'embedding a ete entraine sur
+    #               de l'arabe standard, pas sur notre forme conflatee.
+    # Mesure sur 100 requetes FR->AR (hit@5) : text_norm 85 %, text 88 %.
+    # Les deux moteurs veulent donc des pretraitements DIFFERENTS. BM25 reste
+    # toujours construit sur text_norm ; seul le vectoriel est parametrable ici.
+    ap.add_argument("--embed-field", default="text_norm", choices=["text", "text_norm"],
+                    help="champ utilise pour les embeddings (BM25 utilise toujours text_norm)")
     args = ap.parse_args()
 
     t0 = time.perf_counter()
@@ -75,8 +85,9 @@ def main():
 
     # --- 2. embeddings (le cache evite de tout recalculer a chaque essai) ---
     t = time.perf_counter()
-    vecs = embedder.embed_documents([c.text_norm for c in chunks])
-    print(f"embeddings : {vecs.shape} en {time.perf_counter()-t:.1f}s")
+    textes = [getattr(c, args.embed_field) for c in chunks]
+    vecs = embedder.embed_documents(textes)
+    print(f"embeddings : {vecs.shape} depuis '{args.embed_field}' en {time.perf_counter()-t:.1f}s")
 
     # --- 3. index vectoriel ---
     store = FaissHNSWStore(dim=vecs.shape[1], m=HNSW["m"], ef_construction=HNSW["ef_construction"])
@@ -90,7 +101,13 @@ def main():
     print(f"BM25 : {len(bm25.inverse)} termes distincts, {bm25.avgdl:.0f} tokens/chunk en moyenne")
 
     # --- 5. sauvegarde ---
-    nom = f"{args.chunker}_{args.model}" + (f"_{args.lang}" if args.lang else "")
+    # Le suffixe n'apparait que si l'on s'ecarte du defaut : les index deja
+    # construits conservent ainsi leur chemin.
+    nom = f"{args.chunker}_{args.model}"
+    if args.lang:
+        nom += f"_{args.lang}"
+    if args.embed_field != "text_norm":
+        nom += f"_emb-{args.embed_field}"
     out = INDEX_DIR / nom
     out.mkdir(parents=True, exist_ok=True)
     with (out / "chunks.jsonl").open("w", encoding="utf-8") as f:
@@ -101,6 +118,7 @@ def main():
     (out / "bm25.pkl").write_bytes(pickle.dumps(bm25))
     (out / "meta.json").write_text(json.dumps({
         "chunker": args.chunker, "model": args.model, "lang": args.lang,
+        "embed_field": args.embed_field,
         "sources": sorted({c.source_id for c in chunks}),
         "n_docs": len(docs), "dim": int(vecs.shape[1]),
         "hnsw": HNSW, "chunk_stats": st,
