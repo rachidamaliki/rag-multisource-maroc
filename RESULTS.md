@@ -281,6 +281,57 @@ cette tache — 97 requetes sur 100 donnent exactement le meme resultat. Sans
 regarder les paires discordantes, on aurait investi 42 minutes de calcul et
 une complexite supplementaire pour du bruit.
 
+## GOLDEN DATASET v1 — premier examen reel, et un benchmark precedent invalide
+
+### Le dataset (data/golden/)
+50 questions : 19 `semantic` (FR, vocabulaire courant), 12 `exact_match`,
+7 `semantic_ar` (questions en arabe), 12 `unanswerable`.
+Chaque reponse porte une PREUVE mot pour mot, verifiee par scripts/04_build_golden.py :
+0 echec bloquant, 0 alerte de recopie (aucune question semantic ne reprend plus
+de 45 % des mots de son article).
+Types `cross_source` et `conflict` reportes : ils exigent le CGNC et les circulaires DGI.
+
+Regle de pertinence : seuls comptent les chunks commencant par le VRAI en-tete de
+l'article. Mesure prealable : 28 % des chunks FR etiquetes « article N » sont des
+renvois (« l'article 43 ci-dessus… »), 5 % cote arabe.
+
+### Resultats de recherche (38 questions evaluables, reports/golden_retrieval.csv)
+| Type | Meilleure config (hit@5) | vectoriel | BM25 | RRF | ponderee [0,5;1] | ponderee+quota |
+|---|---|---|---|---|---|---|
+| TOUS | RRF | 0,53 | 0,32 | **0,61** | 0,47 | 0,55 |
+| semantic (19) | vectoriel | **0,63** | 0,16 | 0,58 | 0,42 | 0,32 |
+| exact_match (12) | ponderee+quota | 0,17 | 0,75 | 0,58 | 0,75 | **0,83** |
+| semantic_ar (7) | vectoriel | **0,86** | 0,00 | 0,71 | 0,14 | 0,71 |
+
+hit@10 global : RRF 0,82 — le meilleur generateur de candidats.
+hit@1 global : vectoriel 0,24 au mieux — d'ou le diagnostic « classement » :
+les bons passages sont presents mais mal classes. Levier suivant : un reranker.
+
+### Trois lecons
+
+1. AUCUNE configuration ne gagne partout. Le vectoriel domine les questions de sens
+   (FR 0,63 ; AR 0,86), BM25 et la ponderee dominent les numeros d'articles.
+
+2. LA PONDERATION [0,5 ; 1] ETAIT SUR-AJUSTEE. Choisie parce qu'elle donnait 95 % sur
+   les requetes « article N », elle fait tomber les questions de sens de 0,63 a 0,42
+   et l'arabe de 0,86 a 0,14. On avait optimise sur un examen trop etroit.
+
+3. LE BENCHMARK « ARTICLE N » A 95 % ETAIT GONFLE. Sur de vraies questions
+   (« Que prevoit l'article 13 du Code du travail ? ») BM25 tombe a 0,17 en top-1.
+   Inspection de la 1re place sur les 12 questions exact_match (BM25) :
+     BON en-tete 2 | RENVOI du meme article 3 | autre article 6 | renvoi d'un autre 1
+   Le benchmark precedent comptait les RENVOIS comme bonnes reponses (il comparait
+   seulement l'etiquette unit_ref). Et les requetes nues « article 231 » ne
+   contenaient aucun mot parasite, contrairement a une vraie question.
+
+### Cause racine identifiee
+Le reperage des articles a l'ingestion (scripts/00_ingest.py, motif article_fr) est
+insensible a la casse : « l'article 43 ci-dessus » y est pris pour le debut de
+l'article 43. Le chunker structurel cree alors des chunks-debris qui volent les
+premieres places. Correctif a appliquer : en-tete sensible a la casse, exclusion des
+renvois (ci-dessus, ci-dessous, de la loi, du dahir) et de la table des matieres,
+puis reingestion et reconstruction de l'index.
+
 ## Arc 4 — Hybride
 | Methode | semantic | exact_match | cross_source | Global |
 |---|---|---|---|---|
