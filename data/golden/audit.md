@@ -15,9 +15,9 @@
 | s06 | semantic | art. 40 | OK | 11% | fr |
 | s07 | semantic | art. 61 | OK | 0% | fr |
 | s08 | semantic | art. 52 | OK | 14% | ar+fr |
-| s09 | semantic | art. 53 | OK | 29% | ar+fr |
-| s10 | semantic | art. 62 | OK | 0% | ar+fr |
-| s11 | semantic | art. 72 | OK | 0% | ar+fr |
+| s09 | semantic | art. 53 | OK | 29% | fr |
+| s10 | semantic | art. 62 | OK | 0% | fr |
+| s11 | semantic | art. 72 | OK | 0% | fr |
 | s12 | semantic | art. 143 | OK | 25% | ar+fr |
 | s13 | semantic | art. 152 | OK | 20% | fr |
 | s14 | semantic | art. 153 | OK | 14% | fr |
@@ -25,7 +25,7 @@
 | s16 | semantic | art. 184 | OK | 17% | ar+fr |
 | s17 | semantic | art. 201 | OK | 17% | ar+fr |
 | s18 | semantic | art. 205 | OK | 0% | ar+fr |
-| s19 | semantic | art. 231 | OK | 38% | ar+fr |
+| s19 | semantic | art. 231 | OK | 38% | fr |
 | e01 | exact_match | art. 13 | OK | 50% | ar+fr |
 | e02 | exact_match | art. 14 | OK | 50% | ar+fr |
 | e03 | exact_match | art. 16 | OK | 33% | fr |
@@ -33,7 +33,7 @@
 | e05 | exact_match | art. 40 | OK | 50% | fr |
 | e06 | exact_match | art. 52 | OK | 50% | ar+fr |
 | e07 | exact_match | art. 61 | OK | 25% | fr |
-| e08 | exact_match | art. 72 | OK | 50% | ar+fr |
+| e08 | exact_match | art. 72 | OK | 50% | fr |
 | e09 | exact_match | art. 143 | OK | 100% | ar+fr |
 | e10 | exact_match | art. 152 | OK | 50% | fr |
 | e11 | exact_match | art. 184 | OK | 50% | ar+fr |
@@ -41,10 +41,10 @@
 | a01 | semantic_ar | art. 143 | OK | n/a | ar+fr |
 | a02 | semantic_ar | art. 184 | OK | n/a | ar+fr |
 | a03 | semantic_ar | art. 205 | OK | n/a | ar+fr |
-| a04 | semantic_ar | art. 231 | OK | n/a | ar+fr |
+| a04 | semantic_ar | art. 231 | OK | n/a | fr |
 | a05 | semantic_ar | art. 161 | OK | n/a | ar+fr |
 | a06 | semantic_ar | art. 201 | OK | n/a | ar+fr |
-| a07 | semantic_ar | art. 72 | OK | n/a | ar+fr |
+| a07 | semantic_ar | art. 72 | OK | n/a | fr |
 | u01 | unanswerable | - | absent | - | - |
 | u02 | unanswerable | - | absent | - | - |
 | u03 | unanswerable | - | absent | - | - |

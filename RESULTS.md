@@ -332,6 +332,34 @@ premieres places. Correctif a appliquer : en-tete sensible a la casse, exclusion
 renvois (ci-dessus, ci-dessous, de la loi, du dahir) et de la table des matieres,
 puis reingestion et reconstruction de l'index.
 
+## AVANT / APRES correction des renvois (golden dataset, 38 questions evaluables)
+
+Index v1 : 2 968 chunks (dont debris). Index corrige : 2 297 chunks, 1 617 avec
+reference, 247 tokens moyens. Reconstruction : 5 h 20 sur CPU.
+
+| Type | Config | hit@1 avant -> apres | hit@5 avant -> apres | MRR avant -> apres |
+|---|---|---|---|---|
+| TOUS | vectoriel | 0,24 -> **0,32** | 0,53 -> **0,63** | 0,37 -> 0,46 |
+| TOUS | RRF | 0,13 -> **0,32** | 0,61 -> **0,66** | 0,31 -> 0,45 |
+| exact_match | RRF | 0,08 -> **0,50** | 0,58 -> 0,75 | 0,27 -> 0,63 |
+| exact_match | ponderee+quota | 0,08 -> 0,42 | 0,83 -> **0,92** | 0,36 -> 0,61 |
+| semantic | vectoriel | 0,32 -> 0,37 | 0,63 -> 0,63 | 0,48 -> 0,49 |
+| semantic_ar | vectoriel | 0,43 -> 0,43 | 0,86 -> 0,86 | 0,62 -> 0,62 |
+
+Lecture : le gain est concentre la ou on l'attendait, sur les questions par numero
+d'article (RRF hit@1 x6), puisque ce sont les debris « article N ci-dessus » qui
+volaient la 1re place. Questions de sens et arabe quasi inchangees : la correction
+ne les touchait pas.
+
+Reserve : 12 questions exact_match seulement ; les ecarts sont nets mais a
+confirmer sur un dataset plus large. Le golden a ete regenere sur les nouveaux
+chunks avec la meme regle de pertinence (vrais en-tetes uniquement), ce qui rend
+les deux mesures comparables. Resultats v1 conserves dans
+reports/golden_retrieval_v1.csv et data/golden/golden_v1.jsonl.
+
+Restant : hit@1 global plafonne a 0,32 alors que hit@10 est bien plus haut —
+le diagnostic reste « classement ». Levier suivant : reranker.
+
 ## Arc 4 — Hybride
 | Methode | semantic | exact_match | cross_source | Global |
 |---|---|---|---|---|
