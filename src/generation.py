@@ -1,35 +1,30 @@
 """
-ARC 7 — La generation ancree (grounded) avec citations.
+Generation ancree avec citations.
 
-Concept a acquerir (piege documente) :
-  Un bon retrieval NE GARANTIT PAS une bonne reponse. Le modele peut
-  recevoir le passage parfait et l'ignorer, ou melanger le passage avec
-  ses connaissances internes. L'ancrage se construit explicitement,
-  cote generation — ce n'est pas gratuit.
+Un bon retrieval ne garantit pas une bonne reponse : le modele peut recevoir le
+bon passage et l'ignorer, ou le melanger avec ses connaissances internes.
+L'ancrage se construit explicitement, en trois mecanismes :
 
-Trois mecanismes a implementer :
-  1. Un prompt qui NUMEROTE les passages et exige des citations [1], [2]
-  2. Un verificateur qui controle que chaque citation existe reellement
-     (on attrape ainsi les citations hallucinees : le modele ecrit [4]
-     alors qu'on ne lui a donne que 3 passages)
-  3. Un chemin de REFUS : si les passages ne couvrent pas la question,
-     la reponse correcte est "je ne sais pas", pas une invention.
-
-En contexte juridique ou comptable, le point 3 n'est pas un detail de
-confort : une reponse inventee sur un article de loi est un risque reel
-pour le client. C'est un argument commercial autant que technique.
+  1. un prompt qui NUMEROTE les passages et exige des citations [1], [2]
+  2. un verificateur qui controle que chaque citation existe reellement
+     (le modele ecrit [4] alors qu'on ne lui a donne que 3 passages)
+  3. un chemin de REFUS : si les passages ne couvrent pas la question, la
+     reponse correcte est « INFORMATION INSUFFISANTE », pas une invention
 """
 from __future__ import annotations
+
 import re
 
-RAG_PROMPT = """Tu reponds UNIQUEMENT a partir des passages numerotes ci-dessous.
+REFUS = "INFORMATION INSUFFISANTE"
+
+RAG_PROMPT = """Tu es un assistant juridique. Tu reponds UNIQUEMENT a partir des passages numerotes ci-dessous.
 
 REGLES ABSOLUES :
-1. Chaque affirmation doit etre suivie de sa source : [1], [2]...
-2. N'utilise JAMAIS de connaissance exterieure aux passages.
-3. Si les passages ne permettent pas de repondre, ecris exactement :
-   "INFORMATION INSUFFISANTE" puis explique ce qui manque.
-4. Reponds dans la langue de la question.
+1. Chaque affirmation doit etre suivie de sa source entre crochets : [1], [2]...
+2. N'utilise JAMAIS de connaissance exterieure aux passages, meme si tu la crois vraie.
+3. Si les passages ne permettent pas de repondre, ecris exactement : {refus}
+   puis une phrase indiquant ce qui manque. N'invente aucun chiffre.
+4. Reponds dans la langue de la question, en 5 phrases au maximum.
 
 PASSAGES :
 {context}
@@ -40,47 +35,55 @@ REPONSE :"""
 
 
 def build_context(chunks: list[dict]) -> str:
-    """
-    TODO (J17) — formater les chunks en passages numerotes [1], [2]...
+    """Passages numerotes, avec leur source et leur reference.
 
-    Checklist 4 de l'arc : tester l'ORDRE des passages.
-    Effet "lost in the middle" : les LLM traitent mieux ce qui est au debut
-    et a la fin du contexte, et negligent le milieu. Mettre le meilleur
-    passage en premier ou en dernier change mesurablement la qualite.
-    A tester, pas a supposer.
+    Afficher la reference (« article 205 ») aide le modele a citer juste, et
+    l'utilisateur a verifier. Le meilleur passage est place en premier : les
+    LLM exploitent mieux le debut du contexte (effet « lost in the middle »).
     """
-    raise NotImplementedError("Arc 7")
+    blocs = []
+    for i, c in enumerate(chunks, start=1):
+        ref = c.get("unit_ref") or "sans reference"
+        texte = " ".join(c["text"].split())
+        blocs.append(f"[{i}] ({c.get('source_id', '?')} — {ref} — {c.get('lang', '?')})\n{texte}")
+    return "\n\n".join(blocs)
+
+
+def build_prompt(question: str, chunks: list[dict]) -> str:
+    return RAG_PROMPT.format(refus=REFUS, context=build_context(chunks), question=question)
 
 
 def verify_citations(answer: str, n_contexts: int) -> dict:
-    """
-    TODO (J17) — extraire tous les [n] de la reponse et verifier que
-    1 <= n <= n_contexts.
-    Retourne : {"valides": [...], "hallucinees": [...], "sans_citation": bool}
+    """Controle les citations de la reponse.
 
-    Une phrase affirmative sans aucune citation est un signal d'alerte
-    aussi fort qu'une citation inventee.
+    - hallucinees : numeros cites qui ne correspondent a aucun passage fourni
+    - sans_citation : la reponse affirme quelque chose sans rien citer
+    Un refus n'a pas besoin de citation.
     """
-    raise NotImplementedError("Arc 7")
+    cites = [int(n) for n in re.findall(r"\[(\d+)\]", answer)]
+    valides = sorted({n for n in cites if 1 <= n <= n_contexts})
+    hallucinees = sorted({n for n in cites if not 1 <= n <= n_contexts})
+    refus = has_refused(answer)
+    return {
+        "citations": sorted(set(cites)),
+        "valides": valides,
+        "hallucinees": hallucinees,
+        "sans_citation": not cites and not refus,
+        "conforme": not hallucinees and (bool(cites) or refus),
+    }
 
 
 def has_refused(answer: str) -> bool:
-    """TODO (J18) — detecter le refus ("INFORMATION INSUFFISANTE")."""
-    raise NotImplementedError("Arc 7")
+    return REFUS.lower() in (answer or "").lower()
 
 
-def adversarial_refusal_test(pipeline, impossible_questions: list[str]) -> dict:
-    """
-    TODO (J18) — BOSS FIGHT Arc 7.
-
-    Ecrire 15 questions auxquelles votre corpus ne peut PAS repondre
-    (sujets voisins mais absents, questions hors-domaine, questions
-    a premisse fausse : "quel est le taux prevu par l'article 999 ?").
-
-    Critere de reussite : au plus 1 ou 2 hallucinations sur 15.
-    Si vous echouez, l'arc n'est pas fini — renforcez la logique de refus.
-
-    C'est un test que presque personne ne fait, et c'est le premier que
-    posera un client serieux.
-    """
-    raise NotImplementedError("Arc 7 — boss fight")
+def generate(question: str, chunks: list[dict], llm) -> dict:
+    """Appelle le LLM et renvoie la reponse avec son controle de citations."""
+    prompt = build_prompt(question, chunks)
+    reponse = llm.complete(prompt, temperature=0.0, max_tokens=1024) or ""
+    return {
+        "answer": reponse.strip(),
+        "refused": has_refused(reponse),
+        "citations": verify_citations(reponse, len(chunks)),
+        "prompt": prompt,
+    }
