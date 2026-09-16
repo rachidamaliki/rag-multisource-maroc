@@ -111,13 +111,40 @@ def detect_source(path: Path) -> str:
 
 UNIT_PATTERNS = {
     # FR : "Article 145" / "Article premier"
-    "article_fr": re.compile(r"\bArticle\s+(\d+|premier)\b", re.I),
+    # ------------------------------------------------------------------
+    # CORRECTIF (golden dataset v1). L'ancien motif etait insensible a la
+    # casse et non ancre : « l'article 43 ci-dessus » etait pris pour le
+    # DEBUT de l'article 43. Le chunker creait alors des chunks-debris qui
+    # volaient les premieres places (28 % des chunks FR etiquetes article).
+    #
+    # Nouveau motif : « Article » avec majuscule, en DEBUT DE LIGNE, et non
+    # suivi d'une formule de renvoi.
+    # Mesure sur les deux editions francaises :
+    #     ancien  : 844 reperages, 595 numeros, 249 doublons
+    #     nouveau : 589 reperages, 589 numeros,   0 doublon
+    # Le Code du travail compte exactement 589 articles.
+    # ------------------------------------------------------------------
+    "article_fr": re.compile(
+        r"^[ \t]*Article[ \t]+(\d+|premier)\b"
+        r"(?![ \t]*(ci-|ci ?dessus|ci ?dessous|du |de la |de l'|des ))", re.M),
     # AR : "المادة 145" et la variante ou le numero precede le mot (ordre RTL
     #      inverse a l'extraction — diagnostic fait avant l'ingestion)
     # Le motif tolere les deux ta marbuta (ة / ه), les chiffres latins ET
     # arabo-indiens, et les deux ordres : il s'applique au texte BRUT, pas
     # au texte normalise (les offsets doivent pointer dans `text`).
-    "article_ar": re.compile(r"الماد[ةه]\s*[:\-]?\s*([\d٠-٩]+)|([\d٠-٩]+)\s*الماد[ةه]"),
+    #
+    # Cote arabe, meme ancrage en debut de ligne. Compromis ASSUME :
+    #     version ministere : 451 numeros / 142 doublons -> 396 / 5
+    #     version justice   : 118 numeros /  35 doublons ->  27 / 1
+    # On perd de la couverture (surtout sur la version justice, dont
+    # l'extraction RTL est tres degradee) pour gagner en precision. Raison :
+    # un FAUX en-tete cree un debris qui vole la 1re place ; un en-tete MANQUE
+    # fait seulement retomber la page sur un decoupage par phrases.
+    # Variante testee et rejetee : exclusion par la preposition precedente
+    # (« في المادة 43 ») -> 412 numeros mais 26 doublons.
+    "article_ar": re.compile(
+        r"^[ \t]*(?:الماد[ةه][ \t]*[:\-]?[ \t]*([\d٠-٩]+)|([\d٠-٩]+)[ \t]*الماد[ةه])"
+        r"(?![ \t]*(أعلاه|أدناه|من الظهير|من القانون|من المرسوم|من هذا|من هذه))", re.M),
     "rubrique": re.compile(r"\bRubrique\s+([\d.]+)", re.I),
     "circulaire": re.compile(r"\bCirculaire\s+n[°o]?\s*([\d/\-]+)", re.I),
 }
@@ -157,6 +184,12 @@ def ingest_file(path: Path, source_id: str) -> dict:
     for p in pages_brutes:
         txt = clean(p["text"])
         if not txt:
+            continue
+        # La table des matieres cite chaque article avec des points de suite.
+        # Indexee, elle repond a TOUTES les questions « que dit l'article N ? »
+        # sans jamais contenir la reponse. Observe dans le golden dataset :
+        # elle occupait la 1re place BM25 sur « Contenu de l'article 40 ».
+        if "TABLE DES MATI" in txt.upper() or len(re.findall(r"\.{5,}", txt)) >= 5:
             continue
         lang = detect_lang(txt)
         refs = extract_unit_refs(txt, cfg["unit"], lang)
